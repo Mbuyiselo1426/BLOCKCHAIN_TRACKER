@@ -2,7 +2,6 @@ import gspread
 from google.oauth2.service_account import Credentials
 from src.config import CREDENTIALS_FILE, SPREADSHEET_NAME
 
-
 def connect_sheet():
     scope = [
         "https://www.googleapis.com/auth/spreadsheets",
