@@ -1,2 +1,6 @@
 .env
 credentials.json
+clinic-booking-group-8-3b21024df117.json
+venv/
+.venv/
+*.save
