@@ -1,10 +1,13 @@
-# src/tracker.py
 from src.sheet_manager import connect_sheet
 
+
 def track_wallet():
-    try:
-        sheet_creds = connect_sheet()
-        print("✅ Successfully connected to Google Sheets!")
-        # TODO: Add your wallet tracking logic here
-    except Exception as e:
-        print(f"❌ Error connecting to Google Sheets: {e}")
+    print("Connecting to Google Sheets...")
+    sheet = connect_sheet()
+
+    print("Writing test data...")
+
+    row = ["test_hash", "from_address", "to_address", "1000"]
+    sheet.append_row(row)
+
+    print("Done.")
