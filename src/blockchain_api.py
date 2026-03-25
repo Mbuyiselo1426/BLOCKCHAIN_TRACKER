@@ -3,7 +3,6 @@ from src.config import ETHERSCAN_API_KEY, WALLET_ADDRESS
 
 BASE_URL = "https://api.etherscan.io/api"
 
-
 def get_transactions():
     params = {
         "module": "account",
