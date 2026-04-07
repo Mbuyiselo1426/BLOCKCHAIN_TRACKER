@@ -1,38 +1,32 @@
-from src.tracker import track_wallet
+# #this are the running commands
+# #python -m src.main
 import os
+from src.tracker import track_wallet
 from src.blockchain_api import fetch_latest_transactions
-from src.sheet_manager import get_sheet_client
 
-if __name__ == "__main__":
-    print("Starting blockchain tracker...")
-    track_wallet()
-
-#added a fumction
 def run_tracker():
+    print("🚀 Starting the Blockchain Tracker...")
+    
+    # 1. Get the wallet address from .env
     wallet = os.getenv("WALLET_ADDRESS")
-    sheet_id = os.getenv("SPREADSHEET_ID")
     
-    print(f"🔎 Scanning Blockchain for wallet: {wallet[:10]}...")
+    # 2. Fetch the data using the function from blockchain_api.py
+    print(f"🔎 Fetching data for {wallet[:10]}...")
+    new_rows = fetch_latest_transactions(wallet)
     
-    # 1. Fetch real data
-    new_data = fetch_latest_transactions(wallet)
-    
-    if not new_data:
-        print("No new transactions found.")
+    if not new_rows:
+        print("❌ No transactions found or API error.")
         return
 
-    # 2. Connect to Sheets
-    client = get_sheet_client()
-    sheet = client.open_by_key(sheet_id).get_worksheet(0)
+    # 3. Get the Google Sheet object from tracker.py
+    sheet = track_wallet()
     
-    # 3. Push to Sheets
+    # 4. Write the data
     print("📝 Writing to Google Sheets...")
-    for row in new_data:
+    for row in new_rows:
         sheet.append_row(row)
-        
-    print("✅ Done! Your sheet is updated with real blockchain data.")
+    
+    print("✅ Sync Complete!")
 
 if __name__ == "__main__":
     run_tracker()
-#this are the running commands
-#python -m src.main
