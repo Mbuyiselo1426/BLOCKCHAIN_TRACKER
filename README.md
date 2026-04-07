@@ -23,7 +23,9 @@ write the transactions to the sheet
 "The Blockchain Tracker is an automation tool that bridges a traditional database (Google Sheets) with a Decentralized Ledger (Blockchain). It allows a user to record financial transactions in a spreadsheet and automatically 'notarize' them on a blockchain testnet for permanent, tamper-proof record-keeping."
 
 2. The Problem it Solves
-The Problem: Spreadsheets are easy to use, but anyone with access can delete or change the data. There is no "permanent" proof that a transaction happened at a specific time.
+The Problem: Spreadsheets are easy to use1️⃣ Add real blockchain data (Etherscan)
+
+Get your API key and plug it back in so your sheet shows real transactions, not test data., but anyone with access can delete or change the data. There is no "permanent" proof that a transaction happened at a specific time.
 
 The Solution: By sending the data to a blockchain, you create a Transaction Hash. Even if someone deletes the row in Excel, the record lives forever on the blockchain (Sepolia or Amoy).
 
