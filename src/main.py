@@ -21,6 +21,9 @@ def run_tracker():
     # 3. Get the Google Sheet object from tracker.py
     sheet = track_wallet()
     
+    if sheet is None:
+        print("🛑 Critical Error: Could not connect to the Google Sheet. Check your permissions!")
+        return # Stop the script before it crashes
     # 4. Write the data
     print("📝 Writing to Google Sheets...")
     for row in new_rows:

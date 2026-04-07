@@ -26,11 +26,13 @@ load_dotenv()
 def fetch_latest_transactions(wallet_address):
     api_key = os.getenv("ETHERSCAN_API_KEY")
     # API URL to get the last 5 normal transactions
-    url = f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&startblock=0&endblock=99999999&page=1&offset=5&sort=desc&apikey={api_key}"
-    
+    # We use the hostname that your PING confirmed is working
+    # This is the universal V2 endpoint. chainid=1 tells it to look at Ethereum Mainnet.
+    url = f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={wallet_address}&startblock=0&endblock=99999999&page=1&offset=5&sort=desc&apikey={api_key}"
     try:
         response = requests.get(url)
         data = response.json()
+        print(f"DEBUG: Full API Response -> {data}") # ADD THIS LINE
         
         if data["status"] == "1":
             transactions = data["result"]
@@ -50,6 +52,8 @@ def fetch_latest_transactions(wallet_address):
         else:
             print(f"Etherscan says: {data['message']}")
             return []
+    
+    
     except Exception as e:
         print(f"Error connecting to Etherscan: {e}")
         return []
