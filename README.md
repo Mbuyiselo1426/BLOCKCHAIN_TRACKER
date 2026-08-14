@@ -1,7 +1,5 @@
 What This Project Will Do
 
-Your tracker will:
-
 ✔ connect to Etherscan API
 ✔ fetch wallet transactions
 ✔ store them in Google Sheets
