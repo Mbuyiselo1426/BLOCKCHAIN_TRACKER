@@ -60,3 +60,5 @@ APIs: Google Sheets API & Google Drive API.
 Blockchain: Web3.py library connecting to the Polygon Amoy or Ethereum Sepolia testnet.
 
 Environment: Developed on Ubuntu Linux using Virtual Environments (venv) for clean dependency management.
+
+WTC-C5A8Y7ZR
