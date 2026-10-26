@@ -1,4 +1,5 @@
 python-dotenv
 requests
+pytest
 gspread
 google-auth

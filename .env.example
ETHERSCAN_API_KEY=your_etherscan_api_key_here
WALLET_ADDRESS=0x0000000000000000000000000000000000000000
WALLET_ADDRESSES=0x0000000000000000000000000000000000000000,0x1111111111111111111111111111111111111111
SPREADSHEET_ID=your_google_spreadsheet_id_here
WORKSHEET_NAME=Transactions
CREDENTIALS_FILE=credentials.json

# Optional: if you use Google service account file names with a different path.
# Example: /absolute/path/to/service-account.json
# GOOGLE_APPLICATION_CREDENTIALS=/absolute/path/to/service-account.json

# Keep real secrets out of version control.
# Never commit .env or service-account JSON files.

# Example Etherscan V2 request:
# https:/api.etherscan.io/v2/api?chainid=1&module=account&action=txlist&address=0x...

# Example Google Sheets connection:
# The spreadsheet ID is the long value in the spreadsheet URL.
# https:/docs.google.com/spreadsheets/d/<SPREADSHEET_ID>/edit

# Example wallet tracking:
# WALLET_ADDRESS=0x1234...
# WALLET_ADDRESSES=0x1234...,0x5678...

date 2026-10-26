@@ -1,0 +1,202 @@
+import csv
+import os
+import re
+from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
+
+import requests
+
+from src.config import ETHERSCAN_API_KEY, WALLET_ADDRESSES
+
+BASE_URL = "https://api.etherscan.io/v2/api"
+ADDRESS_RE = re.compile(r"^0x[a-fA-F0-9]{40}$")
+
+
+class EtherscanApiError(ValueError):
+    """Raised when the Etherscan API request fails."""
+
+
+def validate_wallet_address(address):
+    if not isinstance(address, str):
+        return False
+    value = address.strip()
+    return bool(ADDRESS_RE.fullmatch(value))
+
+
+def get_wallet_addresses():
+    if WALLET_ADDRESSES:
+        return WALLET_ADDRESSES
+    raw_value = os.getenv("WALLET_ADDRESS", "")
+    return [wallet.strip() for wallet in raw_value.split(",") if wallet.strip()]
+
+
+def _placeholder_api_key(value):
+    if not value:
+        return True
+    return value.strip().lower() in {"changeme", "your_api_key", "example", "placeholder", "test-key"}
+
+
+def format_unix_timestamp(value):
+    if value in (None, "", 0):
+        return "Unknown"
+    try:
+        timestamp = int(value)
+    except (TypeError, ValueError):
+        return "Unknown"
+    try:
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    except (OverflowError, OSError, ValueError):
+        return "Unknown"
+    return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def get_transaction_status(tx):
+    txreceipt_status = tx.get("txreceipt_status")
+    if txreceipt_status not in (None, ""):
+        return "success" if str(txreceipt_status) == "1" else "failed"
+
+    is_error = tx.get("isError")
+    if is_error in ("0", 0, None, ""):
+        return "success"
+    if is_error in ("1", 1):
+        return "failed"
+    return "unknown"
+
+
+def fetch_transactions_for_wallet(wallet_address, api_key=None, timeout=10, limit=10):
+    wallet = (wallet_address or "").strip()
+    if not validate_wallet_address(wallet):
+        raise ValueError(f"Invalid wallet address: {wallet_address!r}")
+
+    resolved_api_key = (api_key or os.getenv("ETHERSCAN_API_KEY") or ETHERSCAN_API_KEY or "").strip()
+    if _placeholder_api_key(resolved_api_key):
+        raise ValueError("ETHERSCAN_API_KEY is missing or invalid.")
+
+    params = {
+        "chainid": 1,
+        "module": "account",
+        "action": "txlist",
+        "address": wallet,
+        "startblock": 0,
+        "endblock": 99999999,
+        "page": 1,
+        "offset": limit,
+        "sort": "desc",
+        "apikey": resolved_api_key,
+    }
+
+    try:
+        response = requests.get(BASE_URL, params=params, timeout=timeout)
+        response.raise_for_status()
+    except requests.exceptions.Timeout as exc:
+        raise EtherscanApiError("Etherscan request timed out.") from exc
+    except requests.exceptions.RequestException as exc:
+        raise EtherscanApiError(f"Network error while contacting Etherscan: {exc}") from exc
+
+    data = response.json() if response.content else {}
+    if not isinstance(data, dict):
+        return []
+
+    message = str(data.get("message", "")).lower()
+    if data.get("status") == "0":
+        if "invalid api key" in message:
+            raise ValueError("Invalid Etherscan API key.")
+        if "rate limit" in message or "too many requests" in message:
+            raise EtherscanApiError("Etherscan API rate limit reached.")
+        return []
+
+    transactions = data.get("result", [])
+    if not transactions:
+        return []
+
+    cleaned_transactions = []
+    for transaction in transactions:
+        if not isinstance(transaction, dict):
+            continue
+
+        tx_hash = transaction.get("hash") or transaction.get("transactionHash")
+        if not tx_hash:
+            continue
+
+        raw_value = transaction.get("value") or "0"
+        try:
+            value_eth = Decimal(raw_value) / Decimal(10**18)
+        except (InvalidOperation, TypeError, ValueError):
+            value_eth = Decimal("0")
+
+        wallet_address = transaction.get("to") or transaction.get("from") or wallet
+        direction = "incoming" if str(wallet_address).lower() == wallet.lower() else "outgoing"
+        if str(transaction.get("to", "")).lower() == wallet.lower():
+            direction = "incoming"
+        else:
+            direction = "outgoing"
+
+        cleaned_transactions.append(
+            {
+                "hash": tx_hash,
+                "wallet_address": wallet,
+                "from": transaction.get("from", ""),
+                "to": transaction.get("to", ""),
+                "value": value_eth,
+                "value_eth": value_eth,
+                "direction": direction,
+                "timestamp": format_unix_timestamp(transaction.get("timeStamp")),
+                "unix_timestamp": int(transaction.get("timeStamp") or 0),
+                "status": get_transaction_status(transaction),
+            }
+        )
+
+    return cleaned_transactions
+
+
+def fetch_latest_transactions(wallet_address=None, api_key=None, timeout=10, limit=10):
+    wallets = [wallet_address] if wallet_address else get_wallet_addresses()
+    if not wallets:
+        return []
+
+    unique_transactions = []
+    seen_hashes = set()
+
+    for wallet in wallets:
+        try:
+            wallet_transactions = fetch_transactions_for_wallet(wallet, api_key=api_key, timeout=timeout, limit=limit)
+        except (ValueError, EtherscanApiError) as exc:
+            print(f"Skipping wallet {wallet}: {exc}")
+            continue
+
+        for transaction in wallet_transactions:
+            tx_hash = transaction.get("hash")
+            if not tx_hash or tx_hash in seen_hashes:
+                continue
+            seen_hashes.add(tx_hash)
+            unique_transactions.append(
+                [
+                    transaction["hash"],
+                    transaction["wallet_address"],
+                    transaction["direction"],
+                    float(transaction["value"]),
+                    transaction["timestamp"],
+                    transaction["status"],
+                ]
+            )
+
+    return unique_transactions
+
+
+def export_transactions_to_csv(transactions, file_path):
+    fieldnames = ["hash", "wallet_address", "value", "timestamp", "direction", "status"]
+    with open(file_path, "w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+        for transaction in transactions:
+            writer.writerow(
+                {
+                    "hash": transaction.get("hash", ""),
+                    "wallet_address": transaction.get("wallet_address", ""),
+                    "value": transaction.get("value", ""),
+                    "timestamp": transaction.get("timestamp", ""),
+                    "direction": transaction.get("direction", ""),
+                    "status": transaction.get("status", ""),
+                }
+            )
+    return file_path
