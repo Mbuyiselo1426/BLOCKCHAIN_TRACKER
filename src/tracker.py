@@ -1,21 +1,26 @@
 from src.sheet_manager import connect_sheet
-import os
+from src.config import SPREADSHEET_ID, WORKSHEET_NAME
+
 
 def track_wallet():
     client = connect_sheet()
-    
+
     if client is None:
         return None
 
-    # Use the ID we extracted earlier
-    sheet_id = "1moUTNlg9C84H7kpIU1_hXibgG5sOlB2l1NsImKsswtY"
-    
+    if not SPREADSHEET_ID:
+        print("❌ SPREADSHEET_ID is missing from .env")
+        return None
+
     try:
-        # Client opens the spreadsheet
-        spreadsheet = client.open_by_key(sheet_id)
-        # Spreadsheet gets the specific worksheet
-        sheet = spreadsheet.get_worksheet(0)
+        spreadsheet = client.open_by_key(SPREADSHEET_ID)
+        sheet = spreadsheet.worksheet(WORKSHEET_NAME)
+
+        print(f"✅ Connected to Google Sheet: {spreadsheet.title}")
+        print(f"✅ Using worksheet: {sheet.title}")
+
         return sheet
+
     except Exception as e:
         print(f"❌ Error in tracker.py: {e}")
         return None

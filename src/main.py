@@ -1,6 +1,8 @@
 # #this are the running commands
 # #python -m src.main
 import os
+from dotenv import load_dotenv
+load_dotenv()
 from src.tracker import track_wallet
 from src.blockchain_api import fetch_latest_transactions
 
